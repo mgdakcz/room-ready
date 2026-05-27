@@ -75,7 +75,7 @@ function diffHHMM(startStamp: string, endStamp: string): string {
 }
 
 async function readRows(): Promise<Room[]> {
-  const range = `${SHEET_NAME}!A2:J100`;
+  const range = `${SHEET_NAME}!A2:I100`;
   const res = await fetch(`${GATEWAY}/spreadsheets/${SPREADSHEET_ID}/values/${range}`, {
     headers: gatewayHeaders(),
   });
@@ -87,7 +87,7 @@ async function readRows(): Promise<Room[]> {
   return rows
     .map((r, i) => {
       const cells = [...r];
-      while (cells.length < 10) cells.push("");
+      while (cells.length < 9) cells.push("");
       return {
         row: i + 2,
         roomId: cells[0],
@@ -98,8 +98,8 @@ async function readRows(): Promise<Room[]> {
         cleanerName: cells[5],
         startTime: cells[6],
         endTime: cells[7],
-        totalTime: cells[8],
-        notes: cells[9],
+        totalTime: "",
+        notes: cells[8],
       } satisfies Room;
     })
     .filter((r) => r.roomName.trim() !== "");
@@ -133,9 +133,9 @@ export const clockIn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { stamp } = nowWarsaw();
-    // Write D:I = [status, timestamp, cleaner, start, end(empty), total(empty)]
-    await writeRange(`${SHEET_NAME}!D${data.row}:I${data.row}`, [
-      ["Sprzątanie w toku", stamp, data.cleanerName, stamp, "", ""],
+    // Write D:H = [status, timestamp, cleaner, start, end(empty)]
+    await writeRange(`${SHEET_NAME}!D${data.row}:H${data.row}`, [
+      ["Sprzątanie w toku", stamp, data.cleanerName, stamp, ""],
     ]);
     return { ok: true };
   });
@@ -150,10 +150,9 @@ export const clockOut = createServerFn({ method: "POST" })
     const room = rooms.find((r) => r.row === data.row);
     if (!room) throw new Error("Room not found");
     const { stamp } = nowWarsaw();
-    const total = room.startTime ? diffHHMM(room.startTime, stamp) : "";
-    // Update D (status), E (timestamp), H (end), I (total)
-    await writeRange(`${SHEET_NAME}!D${data.row}:I${data.row}`, [
-      ["Gotowe", stamp, room.cleanerName, room.startTime, stamp, total],
+    // Update D (status), E (timestamp), F (cleaner), G (start), H (end)
+    await writeRange(`${SHEET_NAME}!D${data.row}:H${data.row}`, [
+      ["Gotowe", stamp, room.cleanerName, room.startTime, stamp],
     ]);
     return { ok: true };
   });
@@ -198,7 +197,7 @@ export const setRoomNotes = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }) => {
-    // Column J = Notes
-    await writeRange(`${SHEET_NAME}!J${data.row}`, [[data.notes]]);
+    // Column I = Notes
+    await writeRange(`${SHEET_NAME}!I${data.row}`, [[data.notes]]);
     return { ok: true };
   });
