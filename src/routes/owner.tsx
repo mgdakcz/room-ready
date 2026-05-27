@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import {
   getRooms,
   setRoomStatus,
+  setRoomNotes,
   verifyOwnerPin,
   STATUSES,
   type Room,
@@ -163,43 +164,114 @@ function Dashboard({ pin, onLogout }: { pin: string; onLogout: () => void }) {
 function OwnerRoomRow({ room, pin }: { room: Room; pin: string }) {
   const qc = useQueryClient();
   const setStatusFn = useServerFn(setRoomStatus);
+  const setNotesFn = useServerFn(setRoomNotes);
   const mut = useMutation({
     mutationFn: (status: (typeof STATUSES)[number]) =>
       setStatusFn({ data: { row: room.row, status, pin } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["rooms"] }),
   });
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notes, setNotes] = useState(room.notes);
+  const notesMut = useMutation({
+    mutationFn: (n: string) => setNotesFn({ data: { row: room.row, notes: n } }),
+    onSuccess: () => {
+      setNotesOpen(false);
+      qc.invalidateQueries({ queryKey: ["rooms"] });
+    },
+  });
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-medium text-neutral-900">{room.roomName}</p>
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-          <span
-            className={`rounded-full px-2 py-0.5 font-medium ${STATUS_STYLES[room.status] ?? "bg-neutral-100 text-neutral-700"}`}
-          >
-            {room.status || "—"}
-          </span>
-          {room.cleanerName && (
-            <span className="text-neutral-500">{room.cleanerName}</span>
-          )}
-          {room.totalTime && <span className="text-neutral-400">{room.totalTime}</span>}
+    <div className="rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium text-neutral-900">{room.roomName}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+            <span
+              className={`rounded-full px-2 py-0.5 font-medium ${STATUS_STYLES[room.status] ?? "bg-neutral-100 text-neutral-700"}`}
+            >
+              {room.status || "—"}
+            </span>
+            {room.cleanerName && (
+              <span className="text-neutral-500">{room.cleanerName}</span>
+            )}
+            {room.totalTime && <span className="text-neutral-400">{room.totalTime}</span>}
+          </div>
         </div>
+        <select
+          value={room.status}
+          disabled={mut.isPending}
+          onChange={(e) => mut.mutate(e.target.value as (typeof STATUSES)[number])}
+          className="rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-xs text-neutral-800 focus:border-neutral-900 focus:outline-none disabled:opacity-50"
+        >
+          {!STATUSES.includes(room.status as never) && room.status && (
+            <option value={room.status}>{room.status}</option>
+          )}
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
       </div>
-      <select
-        value={room.status}
-        disabled={mut.isPending}
-        onChange={(e) => mut.mutate(e.target.value as (typeof STATUSES)[number])}
-        className="rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-xs text-neutral-800 focus:border-neutral-900 focus:outline-none disabled:opacity-50"
-      >
-        {!STATUSES.includes(room.status as never) && room.status && (
-          <option value={room.status}>{room.status}</option>
-        )}
-        {STATUSES.map((s) => (
-          <option key={s} value={s}>
-            {s}
-          </option>
-        ))}
-      </select>
+
+      {!notesOpen ? (
+        <div className="mt-2 flex items-start gap-2">
+          <p className="flex-1 text-xs text-neutral-500">
+            {room.notes ? (
+              <span className="whitespace-pre-wrap">📝 {room.notes}</span>
+            ) : (
+              <span className="text-neutral-400">Brak notatek</span>
+            )}
+          </p>
+          <button
+            onClick={() => {
+              setNotes(room.notes);
+              setNotesOpen(true);
+            }}
+            className="shrink-0 rounded-md border border-neutral-200 px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100"
+          >
+            {room.notes ? "Edytuj" : "Dodaj notatkę"}
+          </button>
+        </div>
+      ) : (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            notesMut.mutate(notes);
+          }}
+          className="mt-2 space-y-2"
+        >
+          <textarea
+            autoFocus
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            maxLength={2000}
+            rows={3}
+            className="w-full rounded-md border border-neutral-300 px-2.5 py-1.5 text-sm focus:border-neutral-900 focus:outline-none"
+          />
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={notesMut.isPending}
+              className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+            >
+              {notesMut.isPending ? "Zapisywanie…" : "Zapisz"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setNotesOpen(false)}
+              className="rounded-md border border-neutral-200 px-2.5 py-1.5 text-xs text-neutral-600"
+            >
+              Anuluj
+            </button>
+            {notesMut.error && (
+              <span className="self-center text-xs text-red-600">
+                {(notesMut.error as Error).message}
+              </span>
+            )}
+          </div>
+        </form>
+      )}
     </div>
   );
 }
