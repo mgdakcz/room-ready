@@ -112,7 +112,19 @@ function Dashboard({ pin, onLogout }: { pin: string; onLogout: () => void }) {
     queryFn: () => fetchRooms(),
     refetchInterval: 20000,
   });
-  const rooms = data?.rooms ?? [];
+  const allRooms = data?.rooms ?? [];
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const q = query.trim().toLowerCase();
+  const rooms = allRooms.filter((r) => {
+    if (statusFilter !== "all" && r.status !== statusFilter) return false;
+    if (!q) return true;
+    return (
+      r.roomName.toLowerCase().includes(q) ||
+      r.roomId.toLowerCase().includes(q) ||
+      r.cleanerName.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="min-h-screen bg-neutral-50">
@@ -146,16 +158,60 @@ function Dashboard({ pin, onLogout }: { pin: string; onLogout: () => void }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-5 space-y-2">
+      <main className="mx-auto max-w-3xl px-4 py-5 space-y-3">
+        <div className="space-y-2">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Szukaj pokoju, numeru lub osoby…"
+            className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+          />
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => setStatusFilter("all")}
+              className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                statusFilter === "all"
+                  ? "border-neutral-900 bg-neutral-900 text-white"
+                  : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100"
+              }`}
+            >
+              Wszystkie ({allRooms.length})
+            </button>
+            {STATUSES.map((s) => {
+              const count = allRooms.filter((r) => r.status === s).length;
+              if (count === 0) return null;
+              const active = statusFilter === s;
+              return (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(s)}
+                  className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                    active
+                      ? "border-neutral-900 bg-neutral-900 text-white"
+                      : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100"
+                  }`}
+                >
+                  {s} ({count})
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {isLoading && <p className="text-sm text-neutral-500">Ładowanie pokoi…</p>}
         {error && (
           <p className="text-sm text-red-600">
             Błąd: {(error as Error).message}
           </p>
         )}
-        {rooms.map((room) => (
-          <OwnerRoomRow key={room.row} room={room} pin={pin} />
-        ))}
+        {!isLoading && rooms.length === 0 && allRooms.length > 0 && (
+          <p className="text-sm text-neutral-500">Brak pokoi pasujących do filtra.</p>
+        )}
+        <div className="space-y-2">
+          {rooms.map((room) => (
+            <OwnerRoomRow key={room.row} room={room} pin={pin} />
+          ))}
+        </div>
       </main>
     </div>
   );
@@ -184,7 +240,19 @@ function OwnerRoomRow({ room, pin }: { room: Room; pin: string }) {
     <div className="rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium text-neutral-900">{room.roomName}</p>
+          <p className="truncate font-medium text-neutral-900">
+            {room.roomId && (
+              <span className="mr-1.5 text-xs font-semibold text-neutral-400">
+                #{room.roomId}
+              </span>
+            )}
+            {room.roomName}
+          </p>
+          {room.timeStamp && (
+            <p className="mt-0.5 text-[11px] text-neutral-400">
+              Aktualizacja: {room.timeStamp}
+            </p>
+          )}
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
             <span
               className={`rounded-full px-2 py-0.5 font-medium ${STATUS_STYLES[room.status] ?? "bg-neutral-100 text-neutral-700"}`}
