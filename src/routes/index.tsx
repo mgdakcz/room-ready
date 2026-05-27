@@ -41,7 +41,20 @@ function Index() {
     refetchInterval: 20000,
   });
 
-  const rooms = data?.rooms ?? [];
+  const allRooms = data?.rooms ?? [];
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  const q = query.trim().toLowerCase();
+  const rooms = allRooms.filter((r) => {
+    if (statusFilter !== "all" && r.status !== statusFilter) return false;
+    if (!q) return true;
+    return (
+      r.roomName.toLowerCase().includes(q) ||
+      r.roomId.toLowerCase().includes(q) ||
+      r.cleanerName.toLowerCase().includes(q)
+    );
+  });
   const grouped = STATUS_ORDER.map((s) => ({
     status: s,
     rooms: rooms.filter((r) => r.status === s),
@@ -75,11 +88,41 @@ function Index() {
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-5 space-y-6">
+        <div className="space-y-2">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Szukaj pokoju, numeru lub osoby…"
+            className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+          />
+          <div className="flex flex-wrap gap-1.5">
+            <FilterChip active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>
+              Wszystkie ({allRooms.length})
+            </FilterChip>
+            {STATUS_ORDER.map((s) => {
+              const count = allRooms.filter((r) => r.status === s).length;
+              if (count === 0) return null;
+              return (
+                <FilterChip
+                  key={s}
+                  active={statusFilter === s}
+                  onClick={() => setStatusFilter(s)}
+                >
+                  {s} ({count})
+                </FilterChip>
+              );
+            })}
+          </div>
+        </div>
+
         {isLoading && <p className="text-sm text-neutral-500">Ładowanie pokoi…</p>}
         {error && (
           <p className="text-sm text-red-600">
             Nie udało się wczytać pokoi: {(error as Error).message}
           </p>
+        )}
+        {!isLoading && rooms.length === 0 && allRooms.length > 0 && (
+          <p className="text-sm text-neutral-500">Brak pokoi pasujących do filtra.</p>
         )}
         {grouped.map((g) => (
           <section key={g.status}>
@@ -115,6 +158,29 @@ function Index() {
   );
 }
 
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+        active
+          ? "border-neutral-900 bg-neutral-900 text-white"
+          : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function RoomCard({ room }: { room: Room }) {
   const qc = useQueryClient();
   const clockInFn = useServerFn(clockIn);
@@ -146,7 +212,19 @@ function RoomCard({ room }: { room: Room }) {
     <li className="rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate font-medium text-neutral-900">{room.roomName}</p>
+          <p className="truncate font-medium text-neutral-900">
+            {room.roomId && (
+              <span className="mr-1.5 text-xs font-semibold text-neutral-400">
+                #{room.roomId}
+              </span>
+            )}
+            {room.roomName}
+          </p>
+          {room.timeStamp && (
+            <p className="mt-0.5 text-[11px] text-neutral-400">
+              Aktualizacja: {room.timeStamp}
+            </p>
+          )}
           {inProgress && room.cleanerName && (
             <p className="mt-0.5 text-xs text-blue-700">
               Sprząta: <span className="font-medium">{room.cleanerName}</span>
