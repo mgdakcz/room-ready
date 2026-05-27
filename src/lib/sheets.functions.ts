@@ -172,9 +172,10 @@ export const setRoomStatus = createServerFn({ method: "POST" })
     if (!expected) throw new Error("OWNER_PIN not configured");
     if (data.pin !== expected) throw new Error("Invalid PIN");
     const { stamp } = nowWarsaw();
-    // Update only D (status) and E (timestamp)
-    await writeRange(`${SHEET_NAME}!D${data.row}:E${data.row}`, [
-      [data.status, stamp],
+    // Owner changing the status resets cleaner + start/end times.
+    // D=status, E=timestamp, F=cleaner, G=start, H=end
+    await writeRange(`${SHEET_NAME}!D${data.row}:H${data.row}`, [
+      [data.status, stamp, "", "", ""],
     ]);
     return { ok: true };
   });

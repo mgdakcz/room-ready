@@ -1,9 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
-import { clockIn, clockOut, getRooms, setRoomNotes, type Room } from "@/lib/sheets.functions";
+import { clockOut, getRooms, setRoomNotes, type Room } from "@/lib/sheets.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -183,20 +182,7 @@ function FilterChip({
 
 function RoomCard({ room }: { room: Room }) {
   const qc = useQueryClient();
-  const clockInFn = useServerFn(clockIn);
   const clockOutFn = useServerFn(clockOut);
-  const [name, setName] = useState("");
-  const [expand, setExpand] = useState(false);
-
-  const clockInMut = useMutation({
-    mutationFn: (cleanerName: string) =>
-      clockInFn({ data: { row: room.row, cleanerName } }),
-    onSuccess: () => {
-      setName("");
-      setExpand(false);
-      qc.invalidateQueries({ queryKey: ["rooms"] });
-    },
-  });
 
   const clockOutMut = useMutation({
     mutationFn: () => clockOutFn({ data: { row: room.row } }),
@@ -211,40 +197,42 @@ function RoomCard({ room }: { room: Room }) {
   return (
     <li className="rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate font-medium text-neutral-900">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             {room.roomId && (
-              <span className="mr-1.5 text-xs font-semibold text-neutral-400">
+              <span className="text-xl font-bold leading-none text-neutral-900">
                 #{room.roomId}
               </span>
             )}
-            {room.roomName}
-          </p>
+            <span className="text-base font-medium text-neutral-800">
+              {room.roomName}
+            </span>
+            <span
+              className={`rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[room.status] ?? "bg-neutral-100 text-neutral-700 border-neutral-200"}`}
+            >
+              {room.status || "—"}
+            </span>
+            {room.cleanerName && (
+              <span className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                👤 {room.cleanerName}
+              </span>
+            )}
+          </div>
           {room.timeStamp && (
-            <p className="mt-0.5 text-[11px] text-neutral-400">
+            <p className="mt-1 text-[11px] text-neutral-400">
               Aktualizacja: {room.timeStamp}
-            </p>
-          )}
-          {inProgress && room.cleanerName && (
-            <p className="mt-0.5 text-xs text-blue-700">
-              Sprząta: <span className="font-medium">{room.cleanerName}</span>
-              {room.startTime && <> · od {room.startTime.slice(11)}</>}
-            </p>
-          )}
-          {!inProgress && room.cleanerName && room.totalTime && (
-            <p className="mt-0.5 text-xs text-neutral-500">
-              Ostatnio: {room.cleanerName} · {room.totalTime}
             </p>
           )}
         </div>
         <div className="shrink-0">
-          {claimable && !expand && (
-            <button
-              onClick={() => setExpand(true)}
+          {claimable && (
+            <Link
+              to="/clean/$row"
+              params={{ row: String(room.row) }}
               className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800"
             >
               Start
-            </button>
+            </Link>
           )}
           {inProgress && (
             <button
@@ -258,45 +246,9 @@ function RoomCard({ room }: { room: Room }) {
         </div>
       </div>
 
-      {claimable && expand && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (name.trim()) clockInMut.mutate(name.trim());
-          }}
-          className="mt-3 flex gap-2"
-        >
-          <input
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Twoje imię"
-            maxLength={80}
-            className="flex-1 rounded-md border border-neutral-300 px-2.5 py-1.5 text-sm focus:border-neutral-900 focus:outline-none"
-          />
-          <button
-            type="submit"
-            disabled={clockInMut.isPending || !name.trim()}
-            className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
-          >
-            {clockInMut.isPending ? "..." : "Rozpocznij"}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setExpand(false);
-              setName("");
-            }}
-            className="rounded-md border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-600"
-          >
-            Anuluj
-          </button>
-        </form>
-      )}
-
-      {(clockInMut.error || clockOutMut.error) && (
+      {clockOutMut.error && (
         <p className="mt-2 text-xs text-red-600">
-          {((clockInMut.error || clockOutMut.error) as Error).message}
+          {(clockOutMut.error as Error).message}
         </p>
       )}
 
