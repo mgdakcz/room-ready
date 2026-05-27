@@ -187,3 +187,18 @@ export const verifyOwnerPin = createServerFn({ method: "POST" })
     if (!expected) throw new Error("OWNER_PIN not configured");
     return { ok: data.pin === expected };
   });
+
+export const setRoomNotes = createServerFn({ method: "POST" })
+  .inputValidator((data) =>
+    z
+      .object({
+        row: z.number().int().min(2).max(200),
+        notes: z.string().max(2000),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    // Column J = Notes
+    await writeRange(`${SHEET_NAME}!J${data.row}`, [[data.notes]]);
+    return { ok: true };
+  });
