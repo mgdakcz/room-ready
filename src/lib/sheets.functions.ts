@@ -198,7 +198,7 @@ export const setRoomNotes = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }) => {
-    // Column J = Notes
-    await writeRange(`${SHEET_NAME}!J${data.row}`, [[data.notes]]);
+    // Column I = Notes
+    await writeRange(`${SHEET_NAME}!I${data.row}`, [[data.notes]]);
     return { ok: true };
   });
