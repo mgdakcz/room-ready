@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { clockIn, clockOut, getRooms, type Room } from "@/lib/sheets.functions";
+import { clockIn, clockOut, getRooms, setRoomNotes, type Room } from "@/lib/sheets.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -221,6 +221,87 @@ function RoomCard({ room }: { room: Room }) {
           {((clockInMut.error || clockOutMut.error) as Error).message}
         </p>
       )}
+
+      <NotesEditor row={room.row} initial={room.notes} />
     </li>
+  );
+}
+
+function NotesEditor({ row, initial }: { row: number; initial: string }) {
+  const qc = useQueryClient();
+  const saveFn = useServerFn(setRoomNotes);
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState(initial);
+
+  const mut = useMutation({
+    mutationFn: (notes: string) => saveFn({ data: { row, notes } }),
+    onSuccess: () => {
+      setOpen(false);
+      qc.invalidateQueries({ queryKey: ["rooms"] });
+    },
+  });
+
+  if (!open) {
+    return (
+      <div className="mt-2 flex items-start gap-2">
+        <p className="flex-1 text-xs text-neutral-500">
+          {initial ? (
+            <span className="whitespace-pre-wrap">📝 {initial}</span>
+          ) : (
+            <span className="text-neutral-400">Brak notatek</span>
+          )}
+        </p>
+        <button
+          onClick={() => {
+            setValue(initial);
+            setOpen(true);
+          }}
+          className="shrink-0 rounded-md border border-neutral-200 px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100"
+        >
+          {initial ? "Edytuj" : "Dodaj notatkę"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        mut.mutate(value);
+      }}
+      className="mt-2 space-y-2"
+    >
+      <textarea
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        maxLength={2000}
+        rows={3}
+        placeholder="Notatka dla tego pokoju…"
+        className="w-full rounded-md border border-neutral-300 px-2.5 py-1.5 text-sm focus:border-neutral-900 focus:outline-none"
+      />
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={mut.isPending}
+          className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+        >
+          {mut.isPending ? "Zapisywanie…" : "Zapisz"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="rounded-md border border-neutral-200 px-2.5 py-1.5 text-xs text-neutral-600"
+        >
+          Anuluj
+        </button>
+        {mut.error && (
+          <span className="self-center text-xs text-red-600">
+            {(mut.error as Error).message}
+          </span>
+        )}
+      </div>
+    </form>
   );
 }
