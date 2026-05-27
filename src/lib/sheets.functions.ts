@@ -75,7 +75,7 @@ function diffHHMM(startStamp: string, endStamp: string): string {
 }
 
 async function readRows(): Promise<Room[]> {
-  const range = `${SHEET_NAME}!A2:J100`;
+  const range = `${SHEET_NAME}!A2:I100`;
   const res = await fetch(`${GATEWAY}/spreadsheets/${SPREADSHEET_ID}/values/${range}`, {
     headers: gatewayHeaders(),
   });
@@ -87,7 +87,7 @@ async function readRows(): Promise<Room[]> {
   return rows
     .map((r, i) => {
       const cells = [...r];
-      while (cells.length < 10) cells.push("");
+      while (cells.length < 9) cells.push("");
       return {
         row: i + 2,
         roomId: cells[0],
@@ -98,8 +98,8 @@ async function readRows(): Promise<Room[]> {
         cleanerName: cells[5],
         startTime: cells[6],
         endTime: cells[7],
-        totalTime: cells[8],
-        notes: cells[9],
+        totalTime: "",
+        notes: cells[8],
       } satisfies Room;
     })
     .filter((r) => r.roomName.trim() !== "");
