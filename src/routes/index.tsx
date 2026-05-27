@@ -1,4 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { clockIn, clockOut, getRooms, type Room } from "@/lib/sheets.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -12,20 +17,210 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
+const STATUS_ORDER = [
+  "Priorytet / do sprzątnięcia",
+  "Wolne / do sprzątnięcia",
+  "Sprzątanie w toku",
+  "Zajęte",
+  "Gotowe",
+] as const;
+
+const STATUS_STYLES: Record<string, string> = {
+  "Priorytet / do sprzątnięcia": "bg-red-100 text-red-800 border-red-200",
+  "Wolne / do sprzątnięcia": "bg-amber-100 text-amber-800 border-amber-200",
+  "Sprzątanie w toku": "bg-blue-100 text-blue-800 border-blue-200",
+  Zajęte: "bg-neutral-200 text-neutral-700 border-neutral-300",
+  Gotowe: "bg-emerald-100 text-emerald-800 border-emerald-200",
+};
+
 function Index() {
+  const fetchRooms = useServerFn(getRooms);
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
+    queryKey: ["rooms"],
+    queryFn: () => fetchRooms(),
+    refetchInterval: 20000,
+  });
+
+  const rooms = data?.rooms ?? [];
+  const grouped = STATUS_ORDER.map((s) => ({
+    status: s,
+    rooms: rooms.filter((r) => r.status === s),
+  })).filter((g) => g.rooms.length > 0);
+  const other = rooms.filter((r) => !STATUS_ORDER.includes(r.status as never));
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center px-6"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <div className="text-center">
-        <h1 className="text-4xl sm:text-6xl font-semibold tracking-tight text-neutral-900">
-          Hello, Apartamenty Pilice Tracker
-        </h1>
-        <p className="mt-4 text-neutral-600 text-base sm:text-lg">
-          Cleaning progress, room by room.
-        </p>
-      </div>
+    <div className="min-h-screen bg-neutral-50">
+      <header className="sticky top-0 z-10 border-b bg-white/90 backdrop-blur">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+          <div>
+            <h1 className="text-base font-semibold text-neutral-900">Apartamenty Pilice</h1>
+            <p className="text-xs text-neutral-500">Tracker sprzątania</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => refetch()}
+              className="rounded-md border border-neutral-200 px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 disabled:opacity-50"
+              disabled={isFetching}
+            >
+              {isFetching ? "..." : "Odśwież"}
+            </button>
+            <Link
+              to="/owner"
+              className="rounded-md bg-neutral-900 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-neutral-800"
+            >
+              Właściciel
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-3xl px-4 py-5 space-y-6">
+        {isLoading && <p className="text-sm text-neutral-500">Ładowanie pokoi…</p>}
+        {error && (
+          <p className="text-sm text-red-600">
+            Nie udało się wczytać pokoi: {(error as Error).message}
+          </p>
+        )}
+        {grouped.map((g) => (
+          <section key={g.status}>
+            <div className="mb-2 flex items-center gap-2">
+              <span
+                className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[g.status] ?? ""}`}
+              >
+                {g.status}
+              </span>
+              <span className="text-xs text-neutral-400">{g.rooms.length}</span>
+            </div>
+            <ul className="space-y-2">
+              {g.rooms.map((room) => (
+                <RoomCard key={room.row} room={room} />
+              ))}
+            </ul>
+          </section>
+        ))}
+        {other.length > 0 && (
+          <section>
+            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
+              Inne
+            </div>
+            <ul className="space-y-2">
+              {other.map((room) => (
+                <RoomCard key={room.row} room={room} />
+              ))}
+            </ul>
+          </section>
+        )}
+      </main>
     </div>
+  );
+}
+
+function RoomCard({ room }: { room: Room }) {
+  const qc = useQueryClient();
+  const clockInFn = useServerFn(clockIn);
+  const clockOutFn = useServerFn(clockOut);
+  const [name, setName] = useState("");
+  const [expand, setExpand] = useState(false);
+
+  const clockInMut = useMutation({
+    mutationFn: (cleanerName: string) =>
+      clockInFn({ data: { row: room.row, cleanerName } }),
+    onSuccess: () => {
+      setName("");
+      setExpand(false);
+      qc.invalidateQueries({ queryKey: ["rooms"] });
+    },
+  });
+
+  const clockOutMut = useMutation({
+    mutationFn: () => clockOutFn({ data: { row: room.row } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rooms"] }),
+  });
+
+  const inProgress = room.status === "Sprzątanie w toku";
+  const claimable =
+    room.status === "Wolne / do sprzątnięcia" ||
+    room.status === "Priorytet / do sprzątnięcia";
+
+  return (
+    <li className="rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate font-medium text-neutral-900">{room.roomName}</p>
+          {inProgress && room.cleanerName && (
+            <p className="mt-0.5 text-xs text-blue-700">
+              Sprząta: <span className="font-medium">{room.cleanerName}</span>
+              {room.startTime && <> · od {room.startTime.slice(11)}</>}
+            </p>
+          )}
+          {!inProgress && room.cleanerName && room.totalTime && (
+            <p className="mt-0.5 text-xs text-neutral-500">
+              Ostatnio: {room.cleanerName} · {room.totalTime}
+            </p>
+          )}
+        </div>
+        <div className="shrink-0">
+          {claimable && !expand && (
+            <button
+              onClick={() => setExpand(true)}
+              className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800"
+            >
+              Start
+            </button>
+          )}
+          {inProgress && (
+            <button
+              onClick={() => clockOutMut.mutate()}
+              disabled={clockOutMut.isPending}
+              className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {clockOutMut.isPending ? "..." : "Zakończ"}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {claimable && expand && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (name.trim()) clockInMut.mutate(name.trim());
+          }}
+          className="mt-3 flex gap-2"
+        >
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Twoje imię"
+            maxLength={80}
+            className="flex-1 rounded-md border border-neutral-300 px-2.5 py-1.5 text-sm focus:border-neutral-900 focus:outline-none"
+          />
+          <button
+            type="submit"
+            disabled={clockInMut.isPending || !name.trim()}
+            className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+          >
+            {clockInMut.isPending ? "..." : "Rozpocznij"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setExpand(false);
+              setName("");
+            }}
+            className="rounded-md border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-600"
+          >
+            Anuluj
+          </button>
+        </form>
+      )}
+
+      {(clockInMut.error || clockOutMut.error) && (
+        <p className="mt-2 text-xs text-red-600">
+          {((clockInMut.error || clockOutMut.error) as Error).message}
+        </p>
+      )}
+    </li>
   );
 }
