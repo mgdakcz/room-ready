@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as OwnerRouteImport } from './routes/owner'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CleanRowRouteImport } from './routes/clean.$row'
 
 const OwnerRoute = OwnerRouteImport.update({
   id: '/owner',
@@ -22,31 +23,40 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CleanRowRoute = CleanRowRouteImport.update({
+  id: '/clean/$row',
+  path: '/clean/$row',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/owner': typeof OwnerRoute
+  '/clean/$row': typeof CleanRowRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/owner': typeof OwnerRoute
+  '/clean/$row': typeof CleanRowRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/owner': typeof OwnerRoute
+  '/clean/$row': typeof CleanRowRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/owner'
+  fullPaths: '/' | '/owner' | '/clean/$row'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/owner'
-  id: '__root__' | '/' | '/owner'
+  to: '/' | '/owner' | '/clean/$row'
+  id: '__root__' | '/' | '/owner' | '/clean/$row'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   OwnerRoute: typeof OwnerRoute
+  CleanRowRoute: typeof CleanRowRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/clean/$row': {
+      id: '/clean/$row'
+      path: '/clean/$row'
+      fullPath: '/clean/$row'
+      preLoaderRoute: typeof CleanRowRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   OwnerRoute: OwnerRoute,
+  CleanRowRoute: CleanRowRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
