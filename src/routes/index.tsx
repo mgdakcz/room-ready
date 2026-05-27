@@ -1,9 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
-import { clockIn, clockOut, getRooms, setRoomNotes, type Room } from "@/lib/sheets.functions";
+import { clockOut, getRooms, setRoomNotes, type Room } from "@/lib/sheets.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
