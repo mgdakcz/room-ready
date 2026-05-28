@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { clockOut, getRooms, setRoomNotes, type Room } from "@/lib/sheets.functions";
+import { getRooms, type Room } from "@/lib/sheets.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -16,18 +16,15 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const STATUS_ORDER = [
+const STATUS_FILTERS = [
   "Priorytet / do sprzątnięcia",
   "Wolne / do sprzątnięcia",
-] as const;
-
-const COLLAPSIBLE_STATUSES = [
   "Sprzątanie w toku",
   "Zajęte",
   "Gotowe",
 ] as const;
 
-const STATUS_STYLES: Record<string, string> = {
+export const STATUS_STYLES: Record<string, string> = {
   "Priorytet / do sprzątnięcia": "bg-red-100 text-red-800 border-red-200",
   "Wolne / do sprzątnięcia": "bg-amber-100 text-amber-800 border-amber-200",
   "Sprzątanie w toku": "bg-blue-100 text-blue-800 border-blue-200",
@@ -53,16 +50,11 @@ function Index() {
     if (!q) return true;
     return r.roomId.toLowerCase().includes(q);
   });
-  const grouped = STATUS_ORDER.map((s) => ({
-    status: s,
-    rooms: rooms.filter((r) => r.status === s),
-  })).filter((g) => g.rooms.length > 0);
-  const other = rooms.filter((r) => !STATUS_ORDER.includes(r.status as never));
 
   return (
     <div className="min-h-screen bg-neutral-50">
       <header className="sticky top-0 z-10 border-b bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+        <div className="mx-auto flex max-w-md items-center justify-between px-3 py-3 sm:max-w-xl sm:px-4">
           <div>
             <h1 className="text-base font-semibold text-neutral-900">Apartamenty Pilice</h1>
             <p className="text-xs text-neutral-500">Tracker sprzątania</p>
@@ -85,19 +77,19 @@ function Index() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-5 space-y-6">
+      <main className="mx-auto max-w-md px-3 py-4 space-y-4 sm:max-w-xl sm:px-4 sm:py-5">
         <div className="space-y-2">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Szukaj numeru pokoju…"
-            className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+            className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-base focus:border-neutral-900 focus:outline-none sm:text-sm"
           />
           <div className="flex flex-wrap gap-1.5">
             <FilterChip active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>
               Wszystkie ({allRooms.length})
             </FilterChip>
-            {STATUS_ORDER.map((s) => {
+            {STATUS_FILTERS.map((s) => {
               const count = allRooms.filter((r) => r.status === s).length;
               if (count === 0) return null;
               return (
@@ -122,39 +114,12 @@ function Index() {
         {!isLoading && rooms.length === 0 && allRooms.length > 0 && (
           <p className="text-sm text-neutral-500">Brak pokoi pasujących do filtra.</p>
         )}
-        {grouped.map((g) => (
-          <section key={g.status}>
-            <div className="mb-2 flex items-center gap-2">
-              <span
-                className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[g.status] ?? ""}`}
-              >
-                {g.status}
-              </span>
-              <span className="text-xs text-neutral-400">{g.rooms.length}</span>
-            </div>
-            <ul className="space-y-2">
-              {g.rooms.map((room) => (
-                <RoomCard key={room.row} room={room} />
-              ))}
-            </ul>
-          </section>
-        ))}
-        {COLLAPSIBLE_STATUSES.map((s) => {
-          const list = rooms.filter((r) => r.status === s);
-          if (list.length === 0) return null;
-          return <CollapsibleStatus key={s} status={s} rooms={list} />;
-        })}
-        {other.length > 0 && (
-          <section>
-            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
-              Inne
-            </div>
-            <ul className="space-y-2">
-              {other.map((room) => (
-                <RoomCard key={room.row} room={room} />
-              ))}
-            </ul>
-          </section>
+        {rooms.length > 0 && (
+          <ul className="space-y-2">
+            {rooms.map((room) => (
+              <RoomRow key={room.row} room={room} />
+            ))}
+          </ul>
         )}
       </main>
     </div>
@@ -184,183 +149,28 @@ function FilterChip({
   );
 }
 
-function CollapsibleStatus({ status, rooms }: { status: string; rooms: Room[] }) {
-  const [open, setOpen] = useState(false);
+function RoomRow({ room }: { room: Room }) {
   return (
-    <section>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className={`flex w-full items-center justify-between rounded-full border px-3 py-1.5 text-xs font-medium ${STATUS_STYLES[status] ?? ""}`}
+    <li>
+      <Link
+        to="/clean/$row"
+        params={{ row: String(room.row) }}
+        className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm transition active:bg-neutral-50 hover:border-neutral-300"
       >
-        <span className="flex items-center gap-2">
-          <span>{status}</span>
-          <span className="opacity-70">({rooms.length})</span>
-        </span>
-        <span aria-hidden>{open ? "▾" : "▸"}</span>
-      </button>
-      {open && (
-        <ul className="mt-2 space-y-2">
-          {rooms.map((room) => (
-            <RoomCard key={room.row} room={room} />
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function RoomCard({ room }: { room: Room }) {
-  const qc = useQueryClient();
-  const clockOutFn = useServerFn(clockOut);
-
-  const clockOutMut = useMutation({
-    mutationFn: () => clockOutFn({ data: { row: room.row } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["rooms"] }),
-  });
-
-  const inProgress = room.status === "Sprzątanie w toku";
-  const claimable =
-    room.status === "Wolne / do sprzątnięcia" ||
-    room.status === "Priorytet / do sprzątnięcia";
-
-  return (
-    <li className="rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            {room.roomId && (
-              <span className="text-xl font-bold leading-none text-neutral-900">
-                #{room.roomId}
-              </span>
-            )}
-            <span className="text-base font-medium text-neutral-800">
-              {room.roomName}
-            </span>
-            <span
-              className={`rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[room.status] ?? "bg-neutral-100 text-neutral-700 border-neutral-200"}`}
-            >
-              {room.status || "—"}
-            </span>
-            {room.cleanerName && (
-              <span className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                👤 {room.cleanerName}
-              </span>
-            )}
-          </div>
-          {room.timeStamp && (
-            <p className="mt-1 text-[11px] text-neutral-400">
-              Aktualizacja: {room.timeStamp}
-            </p>
-          )}
-        </div>
-        <div className="shrink-0">
-          {claimable && (
-            <Link
-              to="/clean/$row"
-              params={{ row: String(room.row) }}
-              className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800"
-            >
-              Start
-            </Link>
-          )}
-          {inProgress && (
-            <button
-              onClick={() => clockOutMut.mutate()}
-              disabled={clockOutMut.isPending}
-              className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {clockOutMut.isPending ? "..." : "Zakończ"}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {clockOutMut.error && (
-        <p className="mt-2 text-xs text-red-600">
-          {(clockOutMut.error as Error).message}
-        </p>
-      )}
-
-      <NotesEditor row={room.row} initial={room.notes} />
-    </li>
-  );
-}
-
-function NotesEditor({ row, initial }: { row: number; initial: string }) {
-  const qc = useQueryClient();
-  const saveFn = useServerFn(setRoomNotes);
-  const [open, setOpen] = useState(false);
-  const [value, setValue] = useState(initial);
-
-  const mut = useMutation({
-    mutationFn: (notes: string) => saveFn({ data: { row, notes } }),
-    onSuccess: () => {
-      setOpen(false);
-      qc.invalidateQueries({ queryKey: ["rooms"] });
-    },
-  });
-
-  if (!open) {
-    return (
-      <div className="mt-2 flex items-start gap-2">
-        <p className="flex-1 text-xs text-neutral-500">
-          {initial ? (
-            <span className="whitespace-pre-wrap">📝 {initial}</span>
-          ) : (
-            <span className="text-neutral-400">Brak notatek</span>
-          )}
-        </p>
-        <button
-          onClick={() => {
-            setValue(initial);
-            setOpen(true);
-          }}
-          className="shrink-0 rounded-md border border-neutral-200 px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100"
-        >
-          {initial ? "Edytuj" : "Dodaj notatkę"}
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        mut.mutate(value);
-      }}
-      className="mt-2 space-y-2"
-    >
-      <textarea
-        autoFocus
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        maxLength={2000}
-        rows={3}
-        placeholder="Notatka dla tego pokoju…"
-        className="w-full rounded-md border border-neutral-300 px-2.5 py-1.5 text-sm focus:border-neutral-900 focus:outline-none"
-      />
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={mut.isPending}
-          className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
-        >
-          {mut.isPending ? "Zapisywanie…" : "Zapisz"}
-        </button>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="rounded-md border border-neutral-200 px-2.5 py-1.5 text-xs text-neutral-600"
-        >
-          Anuluj
-        </button>
-        {mut.error && (
-          <span className="self-center text-xs text-red-600">
-            {(mut.error as Error).message}
+        {room.roomId && (
+          <span className="shrink-0 text-lg font-bold leading-none text-neutral-900 tabular-nums">
+            #{room.roomId}
           </span>
         )}
-      </div>
-    </form>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-800">
+          {room.roomName}
+        </span>
+        <span
+          className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium ${STATUS_STYLES[room.status] ?? "bg-neutral-100 text-neutral-700 border-neutral-200"}`}
+        >
+          {room.status || "—"}
+        </span>
+      </Link>
+    </li>
   );
 }
