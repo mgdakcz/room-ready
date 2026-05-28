@@ -3,8 +3,6 @@ import { z } from "zod";
 
 const SPREADSHEET_ID = "1hne3vp8EQtLIqdGgGDKFm2I9nr2PlICHBy0dgj4lZsE";
 const SHEET_NAME = "Rooms";
-
-// Update your GATEWAY to explicitly pass your environment variable API key to Google:
 const GATEWAY = "https://sheets.googleapis.com/v4";
 
 // Status values that exist in the sheet's Selection tab + one transient state we add
@@ -31,21 +29,15 @@ export type Room = {
   notes: string;
 };
 
-function gatewayHeaders() {
-  const lovableKey = process.env.LOVABLE_API_KEY;
-  const sheetsKey = process.env.GOOGLE_SHEETS_API_KEY;
-  if (!lovableKey) throw new Error("LOVABLE_API_KEY is not configured");
-  if (!sheetsKey) throw new Error("GOOGLE_SHEETS_API_KEY is not configured");
+// Returns standard JSON content headers for public Google API requests
+function getGoogleRequestHeaders() {
   return {
-    Authorization: `Bearer ${lovableKey}`,
-    "X-Connection-Api-Key": sheetsKey,
     "Content-Type": "application/json",
   };
 }
 
 function nowWarsaw(): { stamp: string; date: Date } {
   const date = new Date();
-  // Format YYYY-MM-DD HH:MM in Europe/Warsaw
   const parts = new Intl.DateTimeFormat("sv-SE", {
     timeZone: "Europe/Warsaw",
     year: "numeric",
@@ -61,7 +53,6 @@ function nowWarsaw(): { stamp: string; date: Date } {
 }
 
 function diffHHMM(startStamp: string, endStamp: string): string {
-  // stamps look like "YYYY-MM-DD HH:MM" interpreted as Europe/Warsaw local
   const toDate = (s: string) => {
     const m = s.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})$/);
     if (!m) return null;
@@ -77,9 +68,14 @@ function diffHHMM(startStamp: string, endStamp: string): string {
 }
 
 async function readRows(): Promise<Room[]> {
+  const apiKey = process.env.GOOGLE_SHEETS_API_KEY || "";
+  if (!apiKey) throw new Error("GOOGLE_SHEETS_API_KEY is not configured");
+
   const range = `${SHEET_NAME}!A2:I100`;
-  const res = await fetch(`${GATEWAY}/spreadsheets/${SPREADSHEET_ID}/values/${range}`, {
-    headers: gatewayHeaders(),
+  const url = `${GATEWAY}/spreadsheets/${SPREADSHEET_ID}/values/${range}?key=${apiKey}`;
+
+  const res = await fetch(url, {
+    headers: getGoogleRequestHeaders(),
     cache: "no-store",
   });
   if (!res.ok) {
@@ -109,12 +105,15 @@ async function readRows(): Promise<Room[]> {
 }
 
 async function writeRange(range: string, values: (string | number)[][]) {
- // Update it to cleanly inject your API Key parameter at the tail end:
-const apiKey = process.env.GOOGLE_SHEETS_API_KEY || "";
-const url = `${GATEWAY}/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_NAME}!A2:I100?key=${apiKey}`;
+  const apiKey = process.env.GOOGLE_SHEETS_API_KEY || "";
+  if (!apiKey) throw new Error("GOOGLE_SHEETS_API_KEY is not configured");
+
+  // Fix: Target the specific payload range dynamically inside the URL string path
+  const url = `${GATEWAY}/spreadsheets/${SPREADSHEET_ID}/values/${range}?valueInputOption=USER_ENTERED&key=${apiKey}`;
+  
   const res = await fetch(url, {
     method: "PUT",
-    headers: gatewayHeaders(),
+    headers: getGoogleRequestHeaders(),
     body: JSON.stringify({ range, majorDimension: "ROWS", values }),
   });
   if (!res.ok) {
@@ -138,7 +137,6 @@ export const clockIn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { stamp } = nowWarsaw();
-    // Write C:G = [status, timestamp, cleaner, start, end(empty)]
     await writeRange(`${SHEET_NAME}!C${data.row}:G${data.row}`, [
       ["Sprzątanie w toku", stamp, data.cleanerName, stamp, ""],
     ]);
@@ -150,13 +148,11 @@ export const clockOut = createServerFn({ method: "POST" })
     z.object({ row: z.number().int().min(2).max(200) }).parse(data),
   )
   .handler(async ({ data }) => {
-    // Need start time to compute total
     const rooms = await readRows();
     const room = rooms.find((r) => r.row === data.row);
     if (!room) throw new Error("Room not found");
     const { stamp } = nowWarsaw();
     const totalTime = diffHHMM(room.startTime, stamp);
-    // Update C:H = [status, timestamp, cleaner, start, end, total]
     await writeRange(`${SHEET_NAME}!C${data.row}:H${data.row}`, [
       ["Gotowe", stamp, room.cleanerName, room.startTime, stamp, totalTime],
     ]);
@@ -178,8 +174,6 @@ export const setRoomStatus = createServerFn({ method: "POST" })
     if (!expected) throw new Error("OWNER_PIN not configured");
     if (data.pin !== expected) throw new Error("Invalid PIN");
     const { stamp } = nowWarsaw();
-    // Owner changing the status resets cleaner + start/end times.
-    // C:H = status, timestamp, cleaner, start, end, total. Owner status changes reset cleaning data.
     await writeRange(`${SHEET_NAME}!C${data.row}:H${data.row}`, [
       [data.status, stamp, "", "", "", ""],
     ]);
@@ -204,7 +198,6 @@ export const setRoomNotes = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }) => {
-    // Column I = Notes
     await writeRange(`${SHEET_NAME}!I${data.row}`, [[data.notes]]);
     return { ok: true };
   });
