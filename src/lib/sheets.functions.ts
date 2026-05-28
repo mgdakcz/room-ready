@@ -4,7 +4,7 @@ import { z } from "zod";
 const SPREADSHEET_ID = "1hne3vp8EQtLIqdGgGDKFm2I9nr2PlICHBy0dgj4lZsE";
 const SHEET_NAME = "Rooms";
 
-// Change GATEWAY from an empty string directly to Google's official Sheets API endpoint prefix:
+// Update your GATEWAY to explicitly pass your environment variable API key to Google:
 const GATEWAY = "https://sheets.googleapis.com/v4";
 
 // Status values that exist in the sheet's Selection tab + one transient state we add
@@ -109,7 +109,9 @@ async function readRows(): Promise<Room[]> {
 }
 
 async function writeRange(range: string, values: (string | number)[][]) {
-  const url = `${GATEWAY}/spreadsheets/${SPREADSHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`;
+ // Update it to cleanly inject your API Key parameter at the tail end:
+const apiKey = process.env.GOOGLE_SHEETS_API_KEY || "";
+const url = `${GATEWAY}/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_NAME}!A2:I100?key=${apiKey}`;
   const res = await fetch(url, {
     method: "PUT",
     headers: gatewayHeaders(),
