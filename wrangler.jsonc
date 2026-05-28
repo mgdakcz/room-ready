@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "room-ready",
+  "compatibility_date": "2026-05-28",
+  "observability": {
+    "enabled": true
+  },
+  "main": ".output/server/index.mjs", 
+  "assets": {
+    "directory": ".output/public"
+  },
+  "compatibility_flags": [
+    "nodejs_compat"
+  ]
+}
