@@ -151,9 +151,10 @@ export const clockOut = createServerFn({ method: "POST" })
     const room = rooms.find((r) => r.row === data.row);
     if (!room) throw new Error("Room not found");
     const { stamp } = nowWarsaw();
+    const totalTime = diffHHMM(room.startTime, stamp);
     // Update C:H = [status, timestamp, cleaner, start, end, total]
     await writeRange(`${SHEET_NAME}!C${data.row}:H${data.row}`, [
-      ["Gotowe", stamp, room.cleanerName, room.startTime, stamp],
+      ["Gotowe", stamp, room.cleanerName, room.startTime, stamp, totalTime],
     ]);
     return { ok: true };
   });
