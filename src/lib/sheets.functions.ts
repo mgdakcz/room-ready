@@ -3,8 +3,10 @@ import { z } from "zod";
 
 const SPREADSHEET_ID = "1hne3vp8EQtLIqdGgGDKFm2I9nr2PlICHBy0dgj4lZsE";
 const SHEET_NAME = "Rooms";
-// Set GATEWAY to match the SPREADSHEET_ID or let it fall back 
-const GATEWAY = "1hne3vp8EQtLIqdGgGDKFm2I9nr2PlICHBy0dgj4lZsE";
+
+// Change GATEWAY to an empty string or remove it entirely if it's not being used,
+// because your template's underlying code already adds the "/spreadsheets/" path on its own!
+const GATEWAY = "";
 
 // Status values that exist in the sheet's Selection tab + one transient state we add
 export const STATUSES = [
