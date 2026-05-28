@@ -78,6 +78,7 @@ async function readRows(): Promise<Room[]> {
   const range = `${SHEET_NAME}!A2:I100`;
   const res = await fetch(`${GATEWAY}/spreadsheets/${SPREADSHEET_ID}/values/${range}`, {
     headers: gatewayHeaders(),
+    cache: "no-store",
   });
   if (!res.ok) {
     throw new Error(`Sheets read failed [${res.status}]: ${await res.text()}`);
@@ -92,13 +93,13 @@ async function readRows(): Promise<Room[]> {
         row: i + 2,
         roomId: cells[0],
         roomName: cells[1],
-        floor: cells[2],
-        status: cells[3],
-        timeStamp: cells[4],
-        cleanerName: cells[5],
-        startTime: cells[6],
-        endTime: cells[7],
-        totalTime: "",
+        floor: "",
+        status: cells[2],
+        timeStamp: cells[3],
+        cleanerName: cells[4],
+        startTime: cells[5],
+        endTime: cells[6],
+        totalTime: cells[7],
         notes: cells[8],
       } satisfies Room;
     })
@@ -133,8 +134,8 @@ export const clockIn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { stamp } = nowWarsaw();
-    // Write D:H = [status, timestamp, cleaner, start, end(empty)]
-    await writeRange(`${SHEET_NAME}!D${data.row}:H${data.row}`, [
+    // Write C:G = [status, timestamp, cleaner, start, end(empty)]
+    await writeRange(`${SHEET_NAME}!C${data.row}:G${data.row}`, [
       ["Sprzątanie w toku", stamp, data.cleanerName, stamp, ""],
     ]);
     return { ok: true };
@@ -150,8 +151,8 @@ export const clockOut = createServerFn({ method: "POST" })
     const room = rooms.find((r) => r.row === data.row);
     if (!room) throw new Error("Room not found");
     const { stamp } = nowWarsaw();
-    // Update D (status), E (timestamp), F (cleaner), G (start), H (end)
-    await writeRange(`${SHEET_NAME}!D${data.row}:H${data.row}`, [
+    // Update C:H = [status, timestamp, cleaner, start, end, total]
+    await writeRange(`${SHEET_NAME}!C${data.row}:H${data.row}`, [
       ["Gotowe", stamp, room.cleanerName, room.startTime, stamp],
     ]);
     return { ok: true };
@@ -173,9 +174,9 @@ export const setRoomStatus = createServerFn({ method: "POST" })
     if (data.pin !== expected) throw new Error("Invalid PIN");
     const { stamp } = nowWarsaw();
     // Owner changing the status resets cleaner + start/end times.
-    // D=status, E=timestamp, F=cleaner, G=start, H=end
-    await writeRange(`${SHEET_NAME}!D${data.row}:H${data.row}`, [
-      [data.status, stamp, "", "", ""],
+    // C:H = status, timestamp, cleaner, start, end, total. Owner status changes reset cleaning data.
+    await writeRange(`${SHEET_NAME}!C${data.row}:H${data.row}`, [
+      [data.status, stamp, "", "", "", ""],
     ]);
     return { ok: true };
   });
