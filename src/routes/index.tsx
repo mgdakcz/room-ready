@@ -188,6 +188,31 @@ function FilterChip({
   );
 }
 
+function CollapsibleStatus({ status, rooms }: { status: string; rooms: Room[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={`flex w-full items-center justify-between rounded-full border px-3 py-1.5 text-xs font-medium ${STATUS_STYLES[status] ?? ""}`}
+      >
+        <span className="flex items-center gap-2">
+          <span>{status}</span>
+          <span className="opacity-70">({rooms.length})</span>
+        </span>
+        <span aria-hidden>{open ? "▾" : "▸"}</span>
+      </button>
+      {open && (
+        <ul className="mt-2 space-y-2">
+          {rooms.map((room) => (
+            <RoomCard key={room.row} room={room} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function RoomCard({ room }: { room: Room }) {
   const qc = useQueryClient();
   const clockOutFn = useServerFn(clockOut);
