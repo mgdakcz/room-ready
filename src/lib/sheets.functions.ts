@@ -4,9 +4,8 @@ import { z } from "zod";
 const SPREADSHEET_ID = "1hne3vp8EQtLIqdGgGDKFm2I9nr2PlICHBy0dgj4lZsE";
 const SHEET_NAME = "Rooms";
 
-// Change GATEWAY to an empty string or remove it entirely if it's not being used,
-// because your template's underlying code already adds the "/spreadsheets/" path on its own!
-const GATEWAY = "";
+// Change GATEWAY from an empty string directly to Google's official Sheets API endpoint prefix:
+const GATEWAY = "https://sheets.googleapis.com/v4";
 
 // Status values that exist in the sheet's Selection tab + one transient state we add
 export const STATUSES = [
