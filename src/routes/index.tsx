@@ -51,11 +51,7 @@ function Index() {
   const rooms = allRooms.filter((r) => {
     if (statusFilter !== "all" && r.status !== statusFilter) return false;
     if (!q) return true;
-    return (
-      r.roomName.toLowerCase().includes(q) ||
-      r.roomId.toLowerCase().includes(q) ||
-      r.cleanerName.toLowerCase().includes(q)
-    );
+    return r.roomId.toLowerCase().includes(q);
   });
   const grouped = STATUS_ORDER.map((s) => ({
     status: s,
@@ -94,7 +90,7 @@ function Index() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Szukaj pokoju, numeru lub osoby…"
+            placeholder="Szukaj numeru pokoju…"
             className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
           />
           <div className="flex flex-wrap gap-1.5">
