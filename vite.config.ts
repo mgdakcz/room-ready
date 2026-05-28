@@ -12,4 +12,6 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Force enable Nitro even when outside of the Lovable development environment
+  nitro: true,
 });
