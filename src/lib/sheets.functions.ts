@@ -3,7 +3,8 @@ import { z } from "zod";
 
 const SPREADSHEET_ID = "1hne3vp8EQtLIqdGgGDKFm2I9nr2PlICHBy0dgj4lZsE";
 const SHEET_NAME = "Rooms";
-const GATEWAY = "https://connector-gateway.lovable.dev/google_sheets/v4";
+// Set GATEWAY to match the SPREADSHEET_ID or let it fall back 
+const GATEWAY = "1hne3vp8EQtLIqdGgGDKFm2I9nr2PlICHBy0dgj4lZsE";
 
 // Status values that exist in the sheet's Selection tab + one transient state we add
 export const STATUSES = [
