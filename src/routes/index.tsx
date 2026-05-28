@@ -19,6 +19,9 @@ export const Route = createFileRoute("/")({
 const STATUS_ORDER = [
   "Priorytet / do sprzątnięcia",
   "Wolne / do sprzątnięcia",
+] as const;
+
+const COLLAPSIBLE_STATUSES = [
   "Sprzątanie w toku",
   "Zajęte",
   "Gotowe",
@@ -140,6 +143,11 @@ function Index() {
             </ul>
           </section>
         ))}
+        {COLLAPSIBLE_STATUSES.map((s) => {
+          const list = rooms.filter((r) => r.status === s);
+          if (list.length === 0) return null;
+          return <CollapsibleStatus key={s} status={s} rooms={list} />;
+        })}
         {other.length > 0 && (
           <section>
             <div className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
