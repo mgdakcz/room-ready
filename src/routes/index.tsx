@@ -19,6 +19,9 @@ export const Route = createFileRoute("/")({
 const STATUS_ORDER = [
   "Priorytet / do sprzątnięcia",
   "Wolne / do sprzątnięcia",
+] as const;
+
+const COLLAPSIBLE_STATUSES = [
   "Sprzątanie w toku",
   "Zajęte",
   "Gotowe",
@@ -140,6 +143,11 @@ function Index() {
             </ul>
           </section>
         ))}
+        {COLLAPSIBLE_STATUSES.map((s) => {
+          const list = rooms.filter((r) => r.status === s);
+          if (list.length === 0) return null;
+          return <CollapsibleStatus key={s} status={s} rooms={list} />;
+        })}
         {other.length > 0 && (
           <section>
             <div className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
@@ -177,6 +185,31 @@ function FilterChip({
     >
       {children}
     </button>
+  );
+}
+
+function CollapsibleStatus({ status, rooms }: { status: string; rooms: Room[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={`flex w-full items-center justify-between rounded-full border px-3 py-1.5 text-xs font-medium ${STATUS_STYLES[status] ?? ""}`}
+      >
+        <span className="flex items-center gap-2">
+          <span>{status}</span>
+          <span className="opacity-70">({rooms.length})</span>
+        </span>
+        <span aria-hidden>{open ? "▾" : "▸"}</span>
+      </button>
+      {open && (
+        <ul className="mt-2 space-y-2">
+          {rooms.map((room) => (
+            <RoomCard key={room.row} room={room} />
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
